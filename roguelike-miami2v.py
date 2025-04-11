@@ -1,28 +1,29 @@
 import curses
 import random
 from collections import deque
-import time
 
 # Función para generar el laberinto conectado sin recursión infinita
 def generar_laberinto_conectado(height, width):
     """Genera un laberinto conectado de manera iterativa para evitar recursión infinita."""
-    mapa = [["#" for _ in range(width)] for _ in range(height)]  # Inicializa el mapa con paredes
+    mapa = [["╫" for _ in range(width)] for _ in range(height)]  # Inicializa el mapa con paredes
     
     # Elige un punto de inicio aleatorio dentro del mapa
     inicio_x, inicio_y = random.choice(range(1, width, 2)), random.choice(range(1, height, 2)) 
     stack = deque([(inicio_x, inicio_y)])  # Pila para recorrer el mapa
     mapa[inicio_y][inicio_x] = " "  # Marca el punto de inicio como espacio vacío
-    hardness= random.randint(0, 20)
-    darkness= random.randint(-10, 10) # genera montes el mayor rango
-    lightness= random.randint(0, 20)        
+
+    hardness= random.randint(1, 9)
+    lightness= random.randint(1, 9)
+    darkness= random.randint(-3, 3)
     # Algoritmo para abrir caminos en el laberinto
     while stack:
+
         x, y = stack.pop()  # Tomar la última posición de la pila
-        direcciones = [(darkness, -lightness), (-lightness, hardness), (-lightness, darkness), (hardness, darkness)]  # Direcciones posibles para avanzar 0, -1), (0, 1), (-1, 0), (1, 0)
-        #random.shuffle(direcciones)  # Aleatoriza las direcciones para que el laberinto sea impredecible
+        direcciones = [(darkness, -lightness), (lightness, hardness), (-lightness, darkness), (hardness, darkness)]  # Direcciones posibles para avanzar 0, -1), (0, 1), (-1, 0), (1, 0)
+        random.shuffle(direcciones)  # Aleatoriza las direcciones para que el laberinto sea impredecible
         for dx, dy in direcciones:
             nx, ny = x + dx, y + dy
-            if 0 <= nx < width and 0 <= ny < height and mapa[ny][nx] == "#":
+            if 0 <= nx < width and 0 <= ny < height and mapa[ny][nx] == "╫":
                 # Si el siguiente lugar es una pared, abrir el camino
                 mapa[y + dy // 2][x + dx // 2] = " "  # Abre el camino intermedio
                 mapa[ny][nx] = " "  # Abre el camino final
@@ -31,13 +32,13 @@ def generar_laberinto_conectado(height, width):
     # Más apertura de pasillos aleatoria
     for _ in range(height * width // 10):
         x, y = random.randint(1, width - 2), random.randint(1, height - 2)
-        if mapa[y][x] == "#":
+        if mapa[y][x] == "╫":
             mapa[y][x] = " "  # Si el lugar es una pared, lo convierte en espacio vacío
     
     for _ in range(height * width // 100):  # Número de lagunas
         x, y = random.randint(1, width - 2), random.randint(1, height - 2)
         if mapa[y][x] == " ":
-            mapa[y][x] = "█"
+            mapa[y][x] = "░"
     return mapa
 
 # Función para colocar elementos en posiciones aleatorias del mapa
@@ -62,12 +63,12 @@ def mover(entidad, dx, dy, mapa, npcs, ancho, alto, personaje=False):
             entidad["energia"] -= 1  # Si es el personaje, se pierde energía por estar fuera de rango
         return False  # No se puede mover fuera de los límites
 
-    if mapa[nueva_y][nueva_x] == "#":  # Si el siguiente lugar es una pared
+    if mapa[nueva_y][nueva_x] == "╫":  # Si el siguiente lugar es una pared
         muro_nueva_x = nueva_x + dx  # Calcula la posición de la pared adyacente
         muro_nueva_y = nueva_y + dy  # Calcula la posición de la pared adyacente
         if (0 <= muro_nueva_x < ancho and 0 <= muro_nueva_y < alto and
                 mapa[muro_nueva_y][muro_nueva_x] == " "):  # Si el espacio adyacente es vacío
-            mapa[muro_nueva_y][muro_nueva_x] = "#"  # Empuja la pared al espacio vacío
+            mapa[muro_nueva_y][muro_nueva_x] = "╫"  # Empuja la pared al espacio vacío
             mapa[nueva_y][nueva_x] = " "  # Marca la posición actual como espacio vacío
             entidad["energia"] -= 1  # Pérdida de energía al chocar con la pared
         else:
@@ -75,18 +76,18 @@ def mover(entidad, dx, dy, mapa, npcs, ancho, alto, personaje=False):
                 entidad["energia"] -= 1  # Pérdida de energía al chocar con la pared
             return False  # No se puede mover si hay una pared
 
-    if mapa[nueva_y][nueva_x] == "O":  # Si la entidad toca una caja
+    if mapa[nueva_y][nueva_x] == "o":  # Si la entidad toca una caja
         mapa[nueva_y][nueva_x] = " "  # Destruye la caja al colisionar con ella
         if personaje:
             entidad["energia"] -= 1  # Pérdida de energía por destruir la caja
         return False  # No permite el movimiento si toca una caja
 
-    if mapa[nueva_y][nueva_x] == "Y":  # Si toca comida (NPC muerto)
+    if mapa[nueva_y][nueva_x] == "╕":  # Si toca comida (NPC muerto)
         if personaje:
             entidad["energia"] += 50  # Aumenta la energía del personaje al comer comida
         mapa[nueva_y][nueva_x] = " "  # La comida desaparece después de ser comida
 
-    if mapa[nueva_y][nueva_x] in {"#", "█"}:  # Pared, caja o laguna bloquean el movimiento
+    if mapa[nueva_y][nueva_x] in {"╫", "░"}:  # Pared, caja o laguna bloquean el movimiento
         if personaje:
             entidad["energia"] -= 1  # Pierde energía si choca
         return False
@@ -96,7 +97,7 @@ def mover(entidad, dx, dy, mapa, npcs, ancho, alto, personaje=False):
             entidad["energia"] -= 10  # Pérdida de energía por colisión con NPC
             npc["energia"] -= 10  # El NPC también pierde energía
             if npc["energia"] <= 0:  # Si el NPC muere
-                mapa[npc["y"]][npc["x"]] = "Y"  # El NPC se convierte en comida
+                mapa[npc["y"]][npc["x"]] = "╕"  # El NPC se convierte en comida
                 npcs.remove(npc)  # Elimina al NPC de la lista
             return False  # No se permite movimiento si hay colisión con NPC
 
@@ -127,11 +128,11 @@ def mover_npcs(entidades, mapa, ancho, alto):
                 entidad["energia"] -= 10
 
                 if otra["energia"] <= 0 and otra not in entidades_a_eliminar:
-                    mapa[otra["y"]][otra["x"]] = "Y"
+                    mapa[otra["y"]][otra["x"]] = "╕"
                     entidades_a_eliminar.append(otra)
 
                 if entidad["energia"] <= 0 and entidad not in entidades_a_eliminar:
-                    mapa[entidad["y"]][entidad["x"]] = "Y"
+                    mapa[entidad["y"]][entidad["x"]] = "╕"
                     entidades_a_eliminar.append(entidad)
 
                 colision = True
@@ -155,10 +156,10 @@ def poner_caja(personaje, dx, dy, mapa, ancho, alto):
     x, y = personaje["x"] + dx, personaje["y"] + dy
     while 0 <= x < ancho and 0 <= y < alto:
         if mapa[y][x] == " ":
-            mapa[y][x] = "O"  # Coloca una caja en el nuevo espacio vacío
+            mapa[y][x] = "o"  # Coloca una caja en el nuevo espacio vacío
             personaje["energia"] -= 1  # Reducir la energía al lanzar
             return  
-        elif mapa[y][x] in {"#", "O"}:  # Si encuentra una pared o caja
+        elif mapa[y][x] in {"╫", "o"}:  # Si encuentra una pared o caja
             return  
         x += dx  
         y += dy  
@@ -204,9 +205,9 @@ def tirar_objeto(personaje, dx, dy, mapa, ancho, alto):
     if not (0 <= x < ancho and 0 <= y < alto):  # Si está fuera del mapa, no hacemos nada
         return
 
-    if mapa[y][x] == "#":  # Si hay una pared
+    if mapa[y][x] == "╫":  # Si hay una pared
         mapa[y][x] = " "  # Quitamos la pared de la posición actual            
-        mapa[personaje["y"]][personaje["x"]] = "#"  # Colocamos la pared en la posición del personaje
+        mapa[personaje["y"]][personaje["x"]] = "╫"  # Colocamos la pared en la posición del personaje
         personaje["energia"] -= 10  # Restar energía
         #turn += 1
 
@@ -227,17 +228,17 @@ def lanzar_objeto(personaje, dx, dy, mapa, npcs, width, height):
         for npc in npcs:
             if npc["x"] == x and npc["y"] == y:
                 npcs.remove(npc) # Elimina el NPC
-                mapa[y][x] = "O"  # Le pone un obstaculo
+                mapa[y][x] = "o"  # Le pone un obstaculo
                 personaje["energia"] -= 2  # Restar energía
                 return
 
         # Si choca con una pared, caja o comida, se detiene antes del impacto
-        if mapa[y][x] in {"#", "O", "Y"}:
+        if mapa[y][x] in {"╫", "o", "╕"}:
             personaje["energia"] -= 2  # Restar energía
             return  
 
-        # Si no choca con nada, deja una "O" en la última posición libre
-        mapa[y][x] = "O"
+        # Si no choca con nada, deja una "o" en la última posición libre
+        mapa[y][x] = "o"
         personaje["energia"] -= 2  # Restar energía
 
 # Función principal que ejecuta el juego
@@ -248,36 +249,41 @@ def init_screen(stdscr, nombre_personaje, energia, turn, victorias):
         # Genera un nuevo mapa
         nuevo_mapa = generar_laberinto_conectado(alto, ancho)
         
-        # Coloca comida "Y"
-        colocar_elementos(nuevo_mapa, "Y", cantidad=random.randint(100, 200))
+        # Coloca comida "╕"
+        colocar_elementos(nuevo_mapa, "╕", cantidad=random.randint(100, 200))
         
-        # Coloca cajas "O"
-        colocar_elementos(nuevo_mapa, "O", cantidad=random.randint(100, 1000))
+        # Coloca cajas "o"
+        colocar_elementos(nuevo_mapa, "o", cantidad=random.randint(100, 1000))
         
-        # Inicializa nuevos NPCs asegurándose de que no se ubiquen en posiciones rodeadas de "#"
+        # Inicializa nuevos NPCs asegurándose de que no se ubiquen en posiciones rodeadas de "╫"
         npcs = []
-        for _ in range(width):
-            while True:
-                nueva_x = random.randint(1, ancho - 2)
-                nueva_y = random.randint(1, alto - 2)
-                
-                # Verifica que la posición no esté rodeada de "#"
-                if nuevo_mapa[nueva_y][nueva_x] == " " and not (
-                    nuevo_mapa[nueva_y - 1][nueva_x] == "#" and  # Arriba
-                    nuevo_mapa[nueva_y + 1][nueva_x] == "#" and  # Abajo
-                    nuevo_mapa[nueva_y][nueva_x - 1] == "#" and  # Izquierda
-                    nuevo_mapa[nueva_y][nueva_x + 1] == "#"):    # Derecha
-                    # Coloca el NPC en la posición válida
-                    npcs.append({
-                        "x": nueva_x,
-                        "y": nueva_y,
-                        "char": "☻",
-                        "energia": random.randint(50, 100),
-                        "color": 3
-                    })
-                    nuevo_mapa[nueva_y][nueva_x] = "Y"  # Representación NPC como comida
-                    break  # Sale del ciclo mientras (while) si encuentra una posición válida
-        
+        # Inicializa nuevos NPCs con validación del entorno y control de errores
+        for _ in range(180): # el rango es el numero de npc
+            try:
+                for intento in range(100):  # Limita los intentos para evitar bucles infinitos
+                    nueva_x = random.randint(1, ancho - 2)
+                    nueva_y = random.randint(1, alto - 2)
+
+                    if nuevo_mapa[nueva_y][nueva_x] == " " and not (
+                        nuevo_mapa[nueva_y - 1][nueva_x] == "╫" and
+                        nuevo_mapa[nueva_y + 1][nueva_x] == "╫" and
+                        nuevo_mapa[nueva_y][nueva_x - 1] == "╫" and
+                        nuevo_mapa[nueva_y][nueva_x + 1] == "╫"
+                    ):
+                        npc = {
+                            "x": nueva_x,
+                            "y": nueva_y,
+                            "char": "♦",
+                            "energia": random.randint(50, 100),
+                            "color": 3
+                        }
+                        npcs.append(npc)
+                        nuevo_mapa[nueva_y][nueva_x] = "╕"
+                        break
+                else:
+                    raise Exception("No se pudo ubicar un NPC tras 100 intentos.")
+            except Exception as e:
+                print(f"⚠️ Advertencia: {e}")        
         # Limpia los bordes del mapa de objetos
         for y in range(alto):
             nuevo_mapa[y][0] = " "  # Limpia la columna izquierda
@@ -327,7 +333,7 @@ def init_screen(stdscr, nombre_personaje, energia, turn, victorias):
     posicion_actual = (0, 0)
 
     # Definir dimensiones del mapa
-    height, width = 45, 180  # Tamaño fijo 45x180 para pc, 45x45 para phone
+    height, width = curses.LINES - 1, curses.COLS - 1  # Tamaño fijo 45x180 para pc, 45x45 para phone
 
     # Generar mapa inicial y NPCs
     mapa, npcs = cambiar_mapa(None, [], personaje, width, height)
@@ -335,7 +341,7 @@ def init_screen(stdscr, nombre_personaje, energia, turn, victorias):
 
     # Mostrar información inicial
     stdscr.clear()
-    stdscr.addstr(0, 0, f"personaje: {nombre_personaje} | Energía: {personaje['energia']} | Turnos: {turn} | Victorias: {victorias} | Mapa: {posicion_actual}")
+    stdscr.addstr(0, 0, f"Player: {nombre_personaje} | Energy: {personaje['energia']} | Turns: {turn} | Victory: {victorias} | Map: {posicion_actual}")
     stdscr.refresh()
     
     # Bucle principal para la ejecución del juego
@@ -345,12 +351,12 @@ def init_screen(stdscr, nombre_personaje, energia, turn, victorias):
         # Imprime el mapa
         for y in range(height):
             for x in range(width):
-                if mapa[y][x] == "Y":
-                    stdscr.addch(y, x, "Y", curses.color_pair(4))  # Verde
-                elif mapa[y][x] == "O":
-                    stdscr.addch(y, x, "O", curses.color_pair(2))  # Amarillo
-                elif mapa[y][x] == "#":
-                    stdscr.addch(y, x, "#", curses.color_pair(5))  # Azul
+                if mapa[y][x] == "╕":
+                    stdscr.addch(y, x, "╕", curses.color_pair(4))  # Verde
+                elif mapa[y][x] == "░":
+                    stdscr.addch(y, x, "░", curses.color_pair(2))  # Amarillo
+                elif mapa[y][x] == "╫":
+                    stdscr.addch(y, x, "╫", curses.color_pair(5))  # Azul
                 else:
                     stdscr.addch(y, x, mapa[y][x])  # 
 
@@ -358,14 +364,14 @@ def init_screen(stdscr, nombre_personaje, energia, turn, victorias):
         cambiar_color(npcs)
         # Imprime los NPCs con el color correspondiente
         for npc in npcs:
-            stdscr.addch(npc["y"], npc["x"], npc["char"], curses.color_pair(npc["color"]))
+            stdscr.addch(npc["y"], npc["x"], npc["char"], curses.color_pair(npc["color"]) )
 
         # Dibuja al personaje
         cambiar_color(personaje)
-        stdscr.addch(personaje["y"], personaje["x"], personaje["char"], curses.color_pair(personaje["color"]) )
+        stdscr.addch(personaje["y"], personaje["x"], personaje["char"], curses.color_pair(personaje["color"]) | curses.A_REVERSE)
 
         # Muestra la energía del personaje y el tiempo
-        stdscr.addstr(0, 0, f"personaje: {nombre_personaje} | Energía: {personaje['energia']} | Turno: {turn} | Victorias: {victorias} | Mapa: {posicion_actual}")
+        stdscr.addstr(0, 0, f"Player: {nombre_personaje} | Energy: {personaje['energia']} | Turns: {turn} | Victory: {victorias} | Map: {posicion_actual}")
 
         stdscr.refresh()  # Refresca la pantalla
 
@@ -435,7 +441,7 @@ def init_screen(stdscr, nombre_personaje, energia, turn, victorias):
         mover_npcs(npcs, mapa, width, height)
         
         if personaje['energia'] <= 0:
-            stdscr.addstr(1,1, "PERDISTE! Energía agotada.")
+            stdscr.addstr(1,1, "PERDISTE! Energia agotada.")
             stdscr.refresh()
             stdscr.getch()  # Espera a que el personaje presione una tecla para continuar
             return init_screen(stdscr, nombre_personaje, energia=50, turn=0, victorias=0)
@@ -531,11 +537,11 @@ M   M          I       AAAAAAAAA        M   M          I
 Keys
 Low energy cost
 ↑ ↓ ← →	Move your character (♥)
-z	Throw a box in front of you (O)
+z	Throw a box in front of you (o)
 
 high energy cost:
 x + Arrow	Swap places with a wall in that direction
-c + Arrow	Launch a projectile (O) toward that direction
+c + Arrow	Launch a projectile (o) toward that direction
 
 .	Wait (skip a turn)
 r	Restart the game
@@ -558,5 +564,3 @@ random.seed()
 # Función para iniciar el juego
 if __name__ == "__main__":
     curses.wrapper(main)  # Llama a la función que maneja la interfaz y el juego
-
-#Paso a paso para agregar funciones al codigo: Una vez limpiado un Mapa  de Npc, los otros no tienen, solo se está cambiando los mapas, y cada  mapa tiene sus propios npc. Modifica la función cambiar_mapa para que  todos los mapas tengas sus npc independientes. tirar_objeto no funciona,  sigue moviendo casillas # a espacios rodeados de # donde está el  personaje o casilla de destino, y sigue poniendo # donde ya hay #, incluso  si ponemos en else: antes de "# Si la casilla actual". 
